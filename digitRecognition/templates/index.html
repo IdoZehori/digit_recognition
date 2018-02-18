@@ -1,0 +1,137 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <style>
+        .jumbotron {
+            text-indent: 50px;
+        }
+
+        #drawCanvas {
+            justify-content: center;
+        }
+
+    </style>
+</head>
+<body>
+<div class="jumbotron">
+    <h1 class="display-3">Digit recognition</h1>
+    <p class="lead">Please draw a digit on the canvas below and I will try to recognize what you've drawn</p>
+    <hr>
+    <p class="lead">Write a number from 1-9 on the canvas</p>
+</div>
+<div id="paint">
+    <canvas id="drawCanvas" style="border:1px solid"></canvas>
+</div>
+<div id="results">
+</div>
+<script>
+    let canvas = document.getElementById('drawCanvas');
+    let ctx = canvas.getContext('2d');
+
+    let painting = document.getElementById('paint');
+    let paint_style = getComputedStyle(painting);
+
+    const imageHeight = 280;
+    const imageWidth = 280;
+
+    canvas.width = parseInt(paint_style.getPropertyValue('width'));
+    canvas.height = parseInt(paint_style.getPropertyValue('height'));
+
+    let mouse = {x: 0, y: 0};
+
+    function clearCanvas() {
+        ctx.canvas.width = imageWidth;
+        ctx.canvas.height = imageHeight;
+    }
+
+
+    canvas.addEventListener('mousemove', function (e) {
+        mouse.x = e.pageX - this.offsetLeft;
+        mouse.y = e.pageY - this.offsetTop;
+    }, false);
+
+    canvas.addEventListener('mousedown', function () {
+        ctx.beginPath();
+        ctx.moveTo(mouse.x, mouse.y);
+
+        canvas.addEventListener('mousemove', onPaint, false);
+    }, false);
+
+    canvas.addEventListener('mouseup', function () {
+        canvas.removeEventListener('mousemove', onPaint, false);
+    }, false);
+
+    let onPaint = function () {
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.lineWidth = 40;
+        ctx.stroke();
+    };
+
+    function isNumeric(num) {
+        return !isNaN(num)
+    }
+
+
+    function httpPost(url, body) {
+        let xhttp = new XMLHttpRequest();
+
+        xhttp.onreadystatechange = function () {
+            if (this.readyState === 4 && this.status === 200) {
+                clearBox('results');
+
+                let newP = document.createElement('p');
+                let text = this.response;
+                if (isNumeric(text)){
+                    text = this.response[0];
+                }
+                let textnode = document.createTextNode("Prediction is: " + text);
+
+                newP.class = 'bg-success';
+                newP.appendChild(textnode);
+
+                document.getElementById("results").appendChild(newP);
+            }
+        };
+
+        xhttp.open("POST", url, true);
+        xhttp.send(body);
+    }
+
+    function sendToClassifier() {
+        const URL = "{{ url_for('handleImage') }}";
+
+        const imgData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+        const pixels = imgData.data;
+        const w = imgData.width;
+        const h = imgData.height;
+        const l = w * h;
+        let alpha = [];
+
+        for (let i = 0; i < l; i++) {
+            // get color of pixel
+            alpha.push(pixels[i * 4 + 3]); // Only keep the alpha values
+        }
+
+        httpPost(URL, alpha);
+    }
+
+    function clearBox(elementID) {
+        const resultsP = document.getElementById(elementID);
+        if (resultsP.hasChildNodes()) {
+            resultsP.removeChild(resultsP.firstChild);
+        }
+    }
+
+    function clearButtonSequence() {
+        clearBox('results');
+        clearCanvas();
+    }
+
+    clearCanvas(); // Init the canvas
+
+</script>
+<button onclick=clearButtonSequence() type="button" class="btn btn-danger">Clear canvas</button>
+<button type="button" class="btn btn-success" onclick="sendToClassifier()">Predict</button>
+</body>
+</html>            
