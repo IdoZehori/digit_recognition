@@ -1,1 +1,1 @@
-digitRecognition/templates/* linguist-vendored
+*.rb linguist-language=Python
